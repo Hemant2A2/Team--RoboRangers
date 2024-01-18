@@ -49,6 +49,41 @@ def detect_center(image):
     edges = cv2.Canny(blurred, 50, 150)
     return edges
 
+def straight(vel = 6):
+    env.move([[vel, vel], [vel, vel]])
+
+def stop():
+    env.move([[0,0],[0,0]])
+
+def right(vel = 4):
+    env.move([[-vel, vel], [-vel, vel]])
+
+def left(vel = 4):
+    env.move([[vel, -vel], [vel, -vel]])
+
+def move(slope, offset):
+    # if  (slope > 1 or slope < -1):
+    #     straight()
+
+    # elif slope < 0:
+    #     stop()
+    #     left()
+
+    # elif slope > 0:
+    #     stop()
+    #     right()
+    if  (-25 < offset < 25):
+        straight()
+
+    elif offset < -25:
+        stop()
+        right()
+
+    elif offset > 25:
+        stop()
+        left()
+
+
 # def draw_lines(img, lines, color=[0, 0, 255], thickness=3):
 #     image = np.copy(img)
 #     if lines is None:
@@ -83,7 +118,7 @@ while True:
     #cv2.drawContours(img, contours, -1, (0,0,255), 3)
     if contours:
         cnt = max(contours, key= cv2.contourArea)
-        #rect = cv2.minAreaRect(cnt)
+        rect = cv2.minAreaRect(cnt)
         # c , dim , theta = rect
         # x,y = c
         # w,h = dim
@@ -91,13 +126,24 @@ while True:
         [vx,vy,x,y] = cv2.fitLine(cnt, cv2.DIST_L2,0,0.01,0.01)
         lefty = int((-x*vy/vx) + y)
         righty = int(((cols-x)*vy/vx)+y)
-        slope = vy/vx
-        print(slope)
+        m = vy/vx
+
+
+        y_c = 0
+        x_c = (y_c - (y - m*x))/m 
+
         cv2.line(img,(int(cols-1),int(righty)),(0,int(lefty)),(0,255,0),2)
-        # box = cv2.boxPoints(rect)
-        # box = np.int0(box)
+        cv2.line(img, (256, 512), (256, 0), (0,0,255), 2)
+
+        offset = x - 256
+        # cv2.circle(img, (int(x), int(y)), 50, (255, 0, 0), 2)
+        box = cv2.boxPoints(rect)
+        box = np.int0(box)
         # cv2.drawContours(img,[box],0,(0,0,255),2)
+
+    move(m, offset)
     cv2.imshow("image", img)
+    print(m)
 
     #change the argument values if needed
     # lines = cv2.HoughLinesP(

@@ -83,7 +83,7 @@ while True:
     #cv2.drawContours(img, contours, -1, (0,0,255), 3)
     if contours:
         cnt = max(contours, key= cv2.contourArea)
-        rect = cv2.minAreaRect(cnt)
+        #rect = cv2.minAreaRect(cnt)
         # c , dim , theta = rect
         # x,y = c
         # w,h = dim
@@ -91,10 +91,12 @@ while True:
         [vx,vy,x,y] = cv2.fitLine(cnt, cv2.DIST_L2,0,0.01,0.01)
         lefty = int((-x*vy/vx) + y)
         righty = int(((cols-x)*vy/vx)+y)
+        slope = vy/vx
+        print(slope)
         cv2.line(img,(int(cols-1),int(righty)),(0,int(lefty)),(0,255,0),2)
-        box = cv2.boxPoints(rect)
-        box = np.int0(box)
-        cv2.drawContours(img,[box],0,(0,0,255),2)
+        # box = cv2.boxPoints(rect)
+        # box = np.int0(box)
+        # cv2.drawContours(img,[box],0,(0,0,255),2)
     cv2.imshow("image", img)
 
     #change the argument values if needed

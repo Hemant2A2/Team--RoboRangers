@@ -48,15 +48,26 @@ env = gym.make('LaRoboLiga24',
 """
 CODE AFTER THIS
 """
+
+def ROI(img, vertices):
+    mask = np.zeros_like(img)
+    match_mask_color = 255
+    cv2.fillPoly(mask, vertices, match_mask_color)
+    masked_img = cv2.bitwise_and(img, mask)
+    blurred = cv2.GaussianBlur(masked_img, (5, 5), 0)
+    cropped_img = cv2.Canny(blurred, 50, 150)
+    return cropped_img
+
 def masking(image , lower_lim , upper_lim):
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
     mask = cv2.inRange(hsv, lower_lim, upper_lim)
     res = cv2.bitwise_and(image,image, mask= mask)
     gray = cv2.cvtColor(res, cv2.COLOR_BGR2GRAY)
-    canny = cv2.Canny(gray, 100, 200)
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    canny = cv2.Canny(blurred, 100, 200)
     return canny
 
-def yellow_ball(image):
+def detect_yellow(image):
     lower_lim = np.array([20,50,50])
     upper_lim = np.array([40,255,255])
     return masking(image , lower_lim, upper_lim)
@@ -66,7 +77,7 @@ def yellow_ball(image):
 #     upper_lim = np.array([40,255,255])
 #     return masking(image , lower_lim, upper_lim)
 
-def red_ball(image):
+def detect_red(image):
     lower_lim = np.array([0,50,50])
     upper_lim = np.array([9,255,255])
     return masking(image , lower_lim, upper_lim)
@@ -76,17 +87,17 @@ def red_ball(image):
 #     upper_lim = np.array([9,255,255])
 #     return masking(image , lower_lim, upper_lim)
 
-def blue_ball(image):
-    lower_lim = np.array([90,50,50])
-    upper_lim = np.array([128,255,255])
+def detect_blue(image):
+    lower_lim = np.array([110,50,50])
+    upper_lim = np.array([130,255,255])
     return masking(image , lower_lim, upper_lim)
 
 # def blue_goal(image):
-#     lower_lim = np.array([90,50,50])
-#     upper_lim = np.array([128,255,255])
+#     lower_lim = np.array([110,50,50])
+#     upper_lim = np.array([130,255,255])
 #     return masking(image , lower_lim, upper_lim)
 
-def purple_ball(image):
+def detect_purple(image):
     lower_lim = np.array([130,50,50])
     upper_lim = np.array([160,255,255])
     return masking(image , lower_lim, upper_lim)
@@ -96,16 +107,29 @@ def purple_ball(image):
 #     upper_lim = np.array([160,255,255])
 #     return masking(image , lower_lim, upper_lim)
 
+def open():
+    env.open_grip()
+
+def close():
+    env.close_grip()
+
+def shoot():
+    env.shoot(5000)
+
 while True:
-    img = env.get_image(cam_height=0, dims=[512, 512])
+    cam_height = 1
+    img = env.get_image(cam_height=cam_height, dims=[512, 512])
+    ROI_vertices = [(160,320),(160,190),(360,190),(360,320)]
 
     # Search order:
     # yellow ball , blue ball , red ball , purple ball
     # issue - not able to detect blue goal post
     # after holding the ball crop the image to remove the part containing ball
 
-    canny = blue_ball(img)
-    ret, thresh = cv2.threshold(canny, 127, 255, 0)
+    canny = detect_yellow(img)
+    cropped_img = ROI(canny, np.array([ROI_vertices],np.int32))
+    
+    ret, thresh = cv2.threshold(cropped_img, 127, 255, 0)
     contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     if contours:
         cnt = max(contours , key=cv2.contourArea)
@@ -140,7 +164,7 @@ while True:
         env.close_grip()
 
     elif ord('s') in keys and keys[ord('s')] & p.KEY_WAS_TRIGGERED:
-        env.shoot()
+        env.shoot(5000)
 
     k = cv2.waitKey(1)
     if k == ord('q'):

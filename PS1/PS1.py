@@ -8,6 +8,8 @@ import numpy as np
 import math
 
 CAR_LOCATION = [-25.5,0,1.5]
+ROI_vertices = [(0,0),(0,450),(512,450),(512,0)]
+ROI_vertices= np.array([ROI_vertices],np.int32)
 
 
 VISUAL_CAM_SETTINGS = dict({
@@ -29,187 +31,86 @@ env = gym.make('LaRoboLiga24',
 CODE AFTER THIS
 """
 
-def ROI(img, vertices):
+def ROI(img):
     mask = np.zeros_like(img)
     match_mask_color = 255
-    cv2.fillPoly(mask, vertices, match_mask_color)
+    cv2.fillPoly(mask, ROI_vertices, match_mask_color)
     masked_img = cv2.bitwise_and(img, mask)
-    blurred = cv2.GaussianBlur(masked_img, (5, 5), 0)
-    edges = cv2.Canny(blurred, 50, 150)
-    return edges
+    #blurred = cv2.GaussianBlur(masked_img, (5, 5), 0)
+    #edges = cv2.Canny(blurred, 50, 150)
+    _, thresh = cv2.threshold(masked_img, 127, 255, 0)
+    contours,_ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    return contours
 
 def detect_center(image):
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-    lower_red = np.array([170,50,50])
+    lower_red = np.array([160,50,50])
     upper_red = np.array([180,255,255])
     mask = cv2.inRange(hsv, lower_red, upper_red)
     res = cv2.bitwise_and(image,image, mask= mask)
     gray = cv2.cvtColor(res, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
     edges = cv2.Canny(blurred, 50, 150)
-    return edges
+    return ROI(edges)
 
-def straight(vel = 6):
-    env.move([[vel, vel], [vel, vel]])
+def control(mode):
+    vel = 3
+    if (mode == "S"):
+        vel = 8
+        env.move([[vel, vel], [vel, vel]])
+    elif (mode == "R"):
+        env.move([[0,0],[0,0]])
+        env.move([[-vel, vel], [-vel, vel]])
+    elif (mode == "L"):
+        env.move([[0,0],[0,0]])
+        env.move([[vel, -vel], [vel, -vel]])
 
-def stop():
-    env.move([[0,0],[0,0]])
-
-def right(vel = 4):
-    env.move([[-vel, vel], [-vel, vel]])
-
-def left(vel = 4):
-    env.move([[vel, -vel], [vel, -vel]])
-
-def move(slope, offset):
-    # if  (slope > 1 or slope < -1):
-    #     straight()
-
-    # elif slope < 0:
-    #     stop()
-    #     left()
-
-    # elif slope > 0:
-    #     stop()
-    #     right()
-    if  (-25 < offset < 25):
-        straight()
-
-    elif offset < -25:
-        stop()
-        right()
-
-    elif offset > 25:
-        stop()
-        left()
-
-
-# def draw_lines(img, lines, color=[0, 0, 255], thickness=3):
-#     image = np.copy(img)
-#     if lines is None:
-#         return
-#     for line in lines:
-#         for x1, y1, x2, y2 in line:
-#             cv2.line(image, (x1, y1), (x2, y2), color, thickness)
-#     return image
-
-# def pid_controller(error, previous_error, integral,Kp, Ki, Kd):
-#     proportional = Kp * error
-#     integral += Ki * error
-#     derivative = Kd * (error - previous_error)
-
-#     return proportional + integral + derivative
-
-# Kp = 0.1
-# Ki = 0.01
-# Kd = 0.05
-
-while True:
-    img = env.get_image(cam_height=0, dims=[512, 512])
-    height = img.shape[0]
-    width = img.shape[1]
-    edges = detect_center(img)
-
-    ROI_vertices = [(0,0),(0,450),(512,450),(512,0)]
-    final_img = ROI(edges, np.array([ROI_vertices],np.int32))
-
-    ret, thresh = cv2.threshold(final_img, 127, 255, 0)
-    contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    #cv2.drawContours(img, contours, -1, (0,0,255), 3)
+def move(contours):
     if contours:
         cnt = max(contours, key= cv2.contourArea)
-        rect = cv2.minAreaRect(cnt)
-        # c , dim , theta = rect
-        # x,y = c
-        # w,h = dim
-        rows,cols = img.shape[:2]
+
+        _,cols = img.shape[:2]
         [vx,vy,x,y] = cv2.fitLine(cnt, cv2.DIST_L2,0,0.01,0.01)
-        lefty = int((-x*vy/vx) + y)
-        righty = int(((cols-x)*vy/vx)+y)
+        left_y = int((-x*vy/vx) + y)
+        right_y = int(((cols-x)*vy/vx)+y)
         m = vy/vx
 
-
-        y_c = 0
-        x_c = (y_c - (y - m*x))/m 
-
-        cv2.line(img,(int(cols-1),int(righty)),(0,int(lefty)),(0,255,0),2)
+        cv2.line(img,(int(cols-1),right_y),(0,left_y),(0,255,0),2)
         cv2.line(img, (256, 512), (256, 0), (0,0,255), 2)
 
         offset = x - 256
-        # cv2.circle(img, (int(x), int(y)), 50, (255, 0, 0), 2)
-        box = cv2.boxPoints(rect)
-        box = np.int0(box)
-        # cv2.drawContours(img,[box],0,(0,0,255),2)
+        print(m, "\t OFFSET: ", offset)
 
-    move(m, offset)
-    cv2.imshow("image", img)
-    print(m)
+        #Straight
+        if  (-25 < offset < 25):
+            control("S")
+        #Right
+        elif offset < -25:
+            control("R")
+        #Left
+        elif offset > 25:
+            control("L")
 
-    #change the argument values if needed
-    # lines = cv2.HoughLinesP(
-    #     edges,
-    #     rho=6,
-    #     theta=np.pi / 180,
-    #     threshold=160,
-    #     lines=np.array([]),
-    #     minLineLength=40,
-    #     maxLineGap=25
-    # )
+# def pid_controller(error, preError , integral):
+#     Kp = 0.1
+#     Ki = 0.01
+#     Kd = 0.05
 
-    # left_line_x = []
-    # left_line_y = []
-    # right_line_x = []
-    # right_line_y = []
- 
-    # for line in lines:
-    #     for x1, y1, x2, y2 in line:
-    #         slope = (y2 - y1) / (x2 - x1)
-    #     if slope <= 0:
-    #         left_line_x.extend([x1, x2])
-    #         left_line_y.extend([y1, y2])
-    #     else:
-    #         right_line_x.extend([x1, x2])
-    #         right_line_y.extend([y1, y2])
-    #     min_y = int(height*(3/5)) #change this if needed
-    #     max_y = int(height)
+#     proportional = Kp * error
+#     integral += Ki * error
+#     derivative = Kd * (error - preError)
 
-    #     if left_line_y and left_line_x and right_line_x and right_line_y is not None:
+#     return proportional + integral + derivative
 
-    #         poly_left = np.poly1d(np.polyfit(
-    #             left_line_y,
-    #             left_line_x,
-    #             deg=1
-    #         ))
-    #         left_x_start = int(poly_left(max_y))
-    #         left_x_end = int(poly_left(min_y))
 
-    #         poly_right = np.poly1d(np.polyfit(
-    #             right_line_y,
-    #             right_line_x,
-    #             deg=1
-    #         ))
-    #         right_x_start = int(poly_right(max_y))
-    #         right_x_end = int(poly_right(min_y))
-
-    #         middle_x_start = int((left_x_start + right_x_start)/2)
-    #         middle_x_end = int((left_x_end + right_x_end)/2)
-
-    #         line_image = draw_lines(
-    #             img,
-    #             [[
-    #                 [left_x_start, max_y, left_x_end, min_y], #uncomment to draw the left boundary
-    #                 [right_x_start, max_y, right_x_end, min_y], #uncomment to draw the right boundary
-    #                 #[middle_x_start, max_y,middle_x_end,min_y],
-
-    #             ]],
-    #         )
+while True:
+    img = env.get_image(cam_height=0, dims=[512, 512])
+    contours = detect_center(img)
     
-    # cv2.imshow("Line of Motion", line_image)
+    move(contours)
+    cv2.imshow("image", img)
 
-
-
-    ## Manual control code
-    ## Need to make this automatic
+    ## Manual control code ---------------------------------------------------------------------------------------------------------------------------------------
     keys = p.getKeyboardEvents()
     rot = 3
     speed = 5
@@ -229,6 +130,7 @@ while True:
 
     elif p.B3G_SPACE in keys and keys[p.B3G_SPACE] & p.KEY_WAS_TRIGGERED:
         env.move([[0, 0], [0, 0]])
+        
 
     k = cv2.waitKey(1)
     if k == ord('q'):

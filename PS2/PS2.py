@@ -7,6 +7,7 @@ import pybullet as p
 import numpy as np
 
 CAR_LOCATION = [0,0,1.5]
+cam_height = 0
 
 BALLS_LOCATION = dict({
     'red': [7, 4, 1.5],
@@ -58,6 +59,7 @@ CODE AFTER THIS
 #     cropped_img = cv2.Canny(blurred, 50, 150)
 #     return cropped_img
 
+
 def masking(image , lower_lim , upper_lim):
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
     mask = cv2.inRange(hsv, lower_lim, upper_lim)
@@ -67,25 +69,30 @@ def masking(image , lower_lim , upper_lim):
     canny = cv2.Canny(blurred, 100, 200)
     return canny
 
+
 def detect_yellow(image):
     lower_lim = np.array([20,50,50])
     upper_lim = np.array([40,255,255])
     return masking(image , lower_lim, upper_lim)
+
 
 def detect_red(image):
     lower_lim = np.array([0,50,50])
     upper_lim = np.array([9,255,255])
     return masking(image , lower_lim, upper_lim)
 
+
 def detect_blue(image):
     lower_lim = np.array([110,50,50])
     upper_lim = np.array([130,255,255])
     return masking(image , lower_lim, upper_lim)
 
+
 def detect_purple(image):
     lower_lim = np.array([130,50,50])
     upper_lim = np.array([160,255,255])
     return masking(image , lower_lim, upper_lim)
+
 
 def backtrack(Movements):
     for movement in reversed(Movements):
@@ -93,33 +100,40 @@ def backtrack(Movements):
         move(m,v)
         t.sleep(i)
 
+
 def open():
     env.open_grip()
+
 
 def close():
     env.close_grip()
 
+
 def shoot():
     env.shoot(5000)
+
 
 def stop():
     env.move(vels=[[0, 0], [0, 0]])
 
+
 def move(mode='f', speed=3):
     if mode.lower() == "f":
-        mat = [[speed, speed], [speed, speed]]
+        vel = [[speed, speed], [speed, speed]]
     elif mode.lower() == "b":
-        mat = [[-speed, -speed], [-speed, -speed]]
+        vel = [[-speed, -speed], [-speed, -speed]]
     elif mode.lower() == "r":
-        mat = [[speed, -speed], [speed, -speed]]
+        vel = [[speed, -speed], [speed, -speed]]
     elif mode.lower() == "l":
-        mat = [[-speed, speed], [-speed, speed]]
-    env.move(vels=mat)
+        vel = [[-speed, speed], [-speed, speed]]
+    env.move(vels=vel)
+
 
 def isBall(cnt):
     area = cv2.contourArea(cnt) if cv2.contourArea(cnt) != 0 else 1
     x, y, w, h = cv2.boundingRect(cnt)
     return (True if (1.1 < w * h / area < 1.5) else False) if (0.85 < w / h < 1.2) else False
+
 
 def MoveHold(cnt):
     global Movements
@@ -153,6 +167,7 @@ def MoveHold(cnt):
             cam_height = 1
             Holding = True
 
+
 def MoveShoot(cnt):
     x, y, w, h = cv2.boundingRect(cnt)
     x = x + w / 2
@@ -168,36 +183,37 @@ def MoveShoot(cnt):
         t.sleep(2)
         Goal = True
 
+
+
 while True:
     Movements = []
-    cam_height = 0
     img = env.get_image(cam_height=cam_height, dims=[512, 512])
     #ROI_vertices = [(160,320),(160,190),(360,190),(360,320)]
 
     ### Search order:
     ### yellow ball , blue ball , red ball , purple ball
     ### issue - not able to detect blue goal post
-    ### after holding the ball crop the image to remove the part containing ball
+    ### after holding the ball crop the image / increase the camera height to remove the part containing ball
 
-    canny = detect_yellow(img)
+    canny = detect_blue(img)
     #cropped_img = ROI(canny, np.array([ROI_vertices],np.int32))
     Holding = False
     Center = False
     Goal = False
 
-    ret, thresh = cv2.threshold(img, 127, 255, 0)
+    _ , thresh = cv2.threshold(canny, 127, 255, 0)
     contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     
     if contours:
         cnt = max(contours , key=cv2.contourArea)
         cv2.drawContours(img, [cnt], 0, (0,255,0), 2)
-        if not Holding:
-            if isBall(cnt):
-                MoveHold(cnt)
-        elif not Center:
-            backtrack(Movements)
-        else:
-            MoveShoot(cnt)
+        # if not Holding:
+        #     if isBall(cnt):
+        #         MoveHold(cnt)
+        # elif not Center:
+        #     backtrack(Movements)
+        # else:
+        #     MoveShoot(cnt)
 
 
     cv2.imshow("image",img)

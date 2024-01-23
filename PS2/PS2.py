@@ -5,6 +5,7 @@ import LaRoboLiga24
 import cv2
 import pybullet as p
 import numpy as np
+import asyncio
 
 CAR_LOCATION = [0,0,1.5]
 cam_height = 0
@@ -94,12 +95,15 @@ def detect_purple(image):
     return masking(image , lower_lim, upper_lim)
 
 
-def backtrack(Movements):
+async def backtrack(Movements):
     print('backtracking started')
     for movement in reversed(Movements):
         m , v , i = movement
-        move(m,v)
-        t.sleep(i)
+        print(movement)
+        move(m,v,i)
+        await asyncio.sleep(interval)
+    global Center
+    Center = True
 
 
 def open():
@@ -118,14 +122,18 @@ def stop():
     env.move(vels=[[0, 0], [0, 0]])
 
 
-def move(mode='f', speed=3):
+def move(mode='f', speed=1.5 , interval = 0):
     if mode.lower() == "f":
+        t.sleep(interval)
         vel = [[speed, speed], [speed, speed]]
     elif mode.lower() == "b":
+        t.sleep(interval)
         vel = [[-speed, -speed], [-speed, -speed]]
     elif mode.lower() == "r":
+        t.sleep(interval)
         vel = [[speed, -speed], [speed, -speed]]
     elif mode.lower() == "l":
+        t.sleep(interval)
         vel = [[-speed, speed], [-speed, speed]]
     env.move(vels=vel)
 
@@ -134,26 +142,28 @@ def isBall(cnt):
     print('detecting ball')
     area = cv2.contourArea(cnt) if cv2.contourArea(cnt) != 0 else 1
     x, y, w, h = cv2.boundingRect(cnt)
-    return (True if (1.1 < w * h / area < 1.5) else False) if (0.85 < w / h < 1.2) else False
-
+    #cv2.rectangle(img,(x,y),(x+w,y+h),(0,255,0),2)
+    #print(f"{w*h/area}, {w/h}")
+    return (True if (1.2 < w * h / area < 1.6) else False) if (0.85 < w / h < 1.3) else False
+    #return True if (0.85 < w / h < 1.2) else False
 
 def MoveHold(cnt):
     print('finding ball')
     global Movements
     x, y, w, h = cv2.boundingRect(cnt)
     x = x + w / 2
-    if x > 302:
+    if x > 260:
         start = t.time()
-        move('r', (310 - x) / 120)
+        move('r', (x - 255) / 120)
         end = t.time()
         interval = end - start
-        Movements.append(('l', (310-x)/120 ,interval ))
-    elif x < 298:
+        Movements.append(('l', (x - 250) / 120 ,interval ))
+    elif x < 250:
         start = t.time()
-        move('r', (290 - x) / 120)
+        move('l', (255 - x) / 120)
         end = t.time()
         interval = end - start
-        Movements.append(('l',(290-x)/120 , interval))
+        Movements.append(('r',(290-x)/120 , interval))
     else:
         start = t.time()
         move('f', 5)
@@ -161,49 +171,62 @@ def MoveHold(cnt):
         interval = end - start
         Movements.append(('b',5 , interval))
         area = cv2.contourArea(cnt)
-        if area > 30000:
+        print(area)
+        if area > 23000:
             global Holding
             global cam_height
             stop()
             close()
             stop()
-            cam_height = 1
+            cam_height = 1.5
             Holding = True
 
 
 def MoveShoot(cnt):
     print('finding goalpost')
-    x, y, w, h = cv2.boundingRect(cnt)
-    x = x + w / 2
-    if x > 302:
-        move('r', (310 - x) / 120)
-    elif x < 298:
-        move('r', (290 - x) / 120)
-    else:
+    # x, y, w, h = cv2.boundingRect(cnt)
+    # cv2.rectangle(img,(x,y),(x+w,y+h),(0,255,0),2)
+    # x = x + w / 2
+    (x,y),radius = cv2.minEnclosingCircle(cnt)
+    center = (int(x),int(y))
+    radius = int(radius)
+    cv2.circle(img,center,radius,(0,0,0),3)
+    print(x)
+    #M = cv2.moments(cnt)
+    # if M['m00']:
+    #     x = int(M['m10']/M['m00'])
+    #     print(f"centroid : {x}")
+    # if x > 260:
+    #     move('r', (x - 255) / 120)
+    # elif x < 250:
+    #     move('l', (255 - x) / 120)
+    if x < 410 and x > 380:
         global Goal
-        #stop(1)
+        t.sleep(1.5)
+        move('r')
+        stop()
         open()
         shoot()
         t.sleep(2)
         Goal = True
 
-
+open()
+Holding = False
+Center = False
+Goal = False
+Movements = []
 
 while True:
-    Movements = []
     img = env.get_image(cam_height=cam_height, dims=[512, 512])
     #ROI_vertices = [(160,320),(160,190),(360,190),(360,320)]
 
     ### Search order:
     ### yellow ball , blue ball , red ball , purple ball
     ### issue - not able to detect blue goal post
-    ### after holding the ball crop the image / increase the camera height to remove the part containing ball
 
+    ### code works for yellow ball... but backtracking not working
     canny = detect_yellow(img)
     #cropped_img = ROI(canny, np.array([ROI_vertices],np.int32))
-    Holding = False
-    Center = False
-    Goal = False
 
     _ , thresh = cv2.threshold(canny, 127, 255, 0)
     contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -214,15 +237,27 @@ while True:
         if not Holding:
             print('not holding')
             if isBall(cnt):
-                print('holding ball')
                 MoveHold(cnt)
+            else:
+                print('rotating')
+                start = t.time()
+                move('l')
+                end = t.time()
+                interval = end - start
+                Movements.append(('r',1.5 , interval))
         elif not Center:
             print('moving to center')
-            backtrack(Movements)
+            asyncio.run(backtrack(Movements))
         else:
             print('reached center')
-            MoveShoot(cnt)
-
+            area = cv2.contourArea(cnt)
+            #print(area)
+            if not Goal and area > 2000:
+                MoveShoot(cnt)
+            else:
+                move('r')
+    else:
+        move('r')
 
     cv2.imshow("image",img)
     ## Manual control code

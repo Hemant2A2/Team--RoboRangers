@@ -83,8 +83,8 @@ def detect_red(image):
 
 
 def detect_blue(image):
-    lower_lim = np.array([110,50,50])
-    upper_lim = np.array([130,255,255])
+    lower_lim = np.array([94,80,20])
+    upper_lim = np.array([120,255,255])
     return masking(image , lower_lim, upper_lim)
 
 
@@ -95,6 +95,7 @@ def detect_purple(image):
 
 
 def backtrack(Movements):
+    print('backtracking started')
     for movement in reversed(Movements):
         m , v , i = movement
         move(m,v)
@@ -130,12 +131,14 @@ def move(mode='f', speed=3):
 
 
 def isBall(cnt):
+    print('detecting ball')
     area = cv2.contourArea(cnt) if cv2.contourArea(cnt) != 0 else 1
     x, y, w, h = cv2.boundingRect(cnt)
     return (True if (1.1 < w * h / area < 1.5) else False) if (0.85 < w / h < 1.2) else False
 
 
 def MoveHold(cnt):
+    print('finding ball')
     global Movements
     x, y, w, h = cv2.boundingRect(cnt)
     x = x + w / 2
@@ -169,6 +172,7 @@ def MoveHold(cnt):
 
 
 def MoveShoot(cnt):
+    print('finding goalpost')
     x, y, w, h = cv2.boundingRect(cnt)
     x = x + w / 2
     if x > 302:
@@ -195,7 +199,7 @@ while True:
     ### issue - not able to detect blue goal post
     ### after holding the ball crop the image / increase the camera height to remove the part containing ball
 
-    canny = detect_blue(img)
+    canny = detect_yellow(img)
     #cropped_img = ROI(canny, np.array([ROI_vertices],np.int32))
     Holding = False
     Center = False
@@ -207,13 +211,17 @@ while True:
     if contours:
         cnt = max(contours , key=cv2.contourArea)
         cv2.drawContours(img, [cnt], 0, (0,255,0), 2)
-        # if not Holding:
-        #     if isBall(cnt):
-        #         MoveHold(cnt)
-        # elif not Center:
-        #     backtrack(Movements)
-        # else:
-        #     MoveShoot(cnt)
+        if not Holding:
+            print('not holding')
+            if isBall(cnt):
+                print('holding ball')
+                MoveHold(cnt)
+        elif not Center:
+            print('moving to center')
+            backtrack(Movements)
+        else:
+            print('reached center')
+            MoveShoot(cnt)
 
 
     cv2.imshow("image",img)

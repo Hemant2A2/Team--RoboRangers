@@ -42,7 +42,7 @@ os.chdir(os.path.dirname(os.getcwd()))
 env = gym.make('LaRoboLiga24',
     arena = "arena2",
     car_location=CAR_LOCATION,
-    ball_location=BALLS_LOCATION,  # toggle this to BALLS_LOCATION_BONOUS to load bonous arena
+    ball_location=BALLS_LOCATION_BONOUS,  # toggle this to BALLS_LOCATION_BONOUS to load bonous arena
     humanoid_location=HUMANOIDS_LOCATION,
     visual_cam_settings=VISUAL_CAM_SETTINGS
 )
@@ -90,18 +90,20 @@ def detect_blue(image):
 
 
 def detect_purple(image):
-    lower_lim = np.array([130,50,50])
+    lower_lim = np.array([130,80,5])
     upper_lim = np.array([160,255,255])
     return masking(image , lower_lim, upper_lim)
 
 
-async def backtrack(Movements):
+def backtrack(Movements):
     print('backtracking started')
-    for movement in reversed(Movements):
-        m , v , i = movement
-        print(movement)
-        move(m,v,i)
-        await asyncio.sleep(interval)
+    # move('b',7,2) ## for backtracking yellow ball
+    move('b',18,2)  ## for backtracking in bonus configuration
+    # for movement in reversed(Movements):
+    #     m , v , i = movement
+    #     print(movement)
+    #     move(m,v,i)
+    # #     #await asyncio.sleep(i)
     global Center
     Center = True
 
@@ -124,18 +126,15 @@ def stop():
 
 def move(mode='f', speed=1.5 , interval = 0):
     if mode.lower() == "f":
-        t.sleep(interval)
         vel = [[speed, speed], [speed, speed]]
     elif mode.lower() == "b":
-        t.sleep(interval)
         vel = [[-speed, -speed], [-speed, -speed]]
     elif mode.lower() == "r":
-        t.sleep(interval)
         vel = [[speed, -speed], [speed, -speed]]
     elif mode.lower() == "l":
-        t.sleep(interval)
         vel = [[-speed, speed], [-speed, speed]]
     env.move(vels=vel)
+    t.sleep(interval)
 
 
 def isBall(cnt):
@@ -163,7 +162,7 @@ def MoveHold(cnt):
         move('l', (255 - x) / 120)
         end = t.time()
         interval = end - start
-        Movements.append(('r',(290-x)/120 , interval))
+        Movements.append(('r',(255-x)/120 , interval))
     else:
         start = t.time()
         move('f', 5)
@@ -200,10 +199,10 @@ def MoveShoot(cnt):
     #     move('r', (x - 255) / 120)
     # elif x < 250:
     #     move('l', (255 - x) / 120)
-    if x < 410 and x > 380:
+    if x < 270 and x > 210:
         global Goal
-        t.sleep(1.5)
-        move('r')
+        # t.sleep(1.5)
+        # move('r')
         stop()
         open()
         shoot()
@@ -225,12 +224,18 @@ while True:
     ### issue - not able to detect blue goal post
 
     ### code works for yellow ball... but backtracking not working
-    canny = detect_yellow(img)
+    canny = detect_red(img)
     #cropped_img = ROI(canny, np.array([ROI_vertices],np.int32))
 
     _ , thresh = cv2.threshold(canny, 127, 255, 0)
     contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     
+    if Holding:
+        if not Center:
+            print('moving to center')
+            #asyncio.run(backtrack(Movements))
+            backtrack(Movements)
+
     if contours:
         cnt = max(contours , key=cv2.contourArea)
         cv2.drawContours(img, [cnt], 0, (0,255,0), 2)
@@ -245,9 +250,6 @@ while True:
                 end = t.time()
                 interval = end - start
                 Movements.append(('r',1.5 , interval))
-        elif not Center:
-            print('moving to center')
-            asyncio.run(backtrack(Movements))
         else:
             print('reached center')
             area = cv2.contourArea(cnt)

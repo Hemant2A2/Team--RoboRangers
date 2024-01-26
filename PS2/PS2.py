@@ -5,10 +5,8 @@ import LaRoboLiga24
 import cv2
 import pybullet as p
 import numpy as np
-import asyncio
 
 CAR_LOCATION = [0,0,1.5]
-cam_height = 0
 
 BALLS_LOCATION = dict({
     'red': [7, 4, 1.5],
@@ -50,16 +48,6 @@ env = gym.make('LaRoboLiga24',
 """
 CODE AFTER THIS
 """
-
-# def ROI(img, vertices):
-#     mask = np.zeros_like(img)
-#     match_mask_color = 255
-#     cv2.fillPoly(mask, vertices, match_mask_color)
-#     masked_img = cv2.bitwise_and(img, mask)
-#     blurred = cv2.GaussianBlur(masked_img, (5, 5), 0)
-#     cropped_img = cv2.Canny(blurred, 50, 150)
-#     return cropped_img
-
 
 def masking(image , lower_lim , upper_lim):
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -183,23 +171,22 @@ def MoveShoot(cnt):
         t.sleep(2)
         Goal = True
 
+######  INITIAL CONDITIONS  ######
 open()
 Holding = False
 Center = False
 Goal = False
+cam_height = 0
+##################################
 
 while True:
     img = env.get_image(cam_height=cam_height, dims=[512, 512])
-    #ROI_vertices = [(160,320),(160,190),(360,190),(360,320)]
 
     ### Search order:
     ### yellow ball , blue ball , red ball , purple ball
     ### issue - not able to detect blue goal post
 
-    ### code works for yellow ball... but backtracking not working
-    canny = detect_blue(img)
-    #cropped_img = ROI(canny, np.array([ROI_vertices],np.int32))
-
+    canny = detect_purple(img)
     _ , thresh = cv2.threshold(canny, 127, 255, 0)
     contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     

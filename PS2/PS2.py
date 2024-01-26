@@ -42,7 +42,7 @@ os.chdir(os.path.dirname(os.getcwd()))
 env = gym.make('LaRoboLiga24',
     arena = "arena2",
     car_location=CAR_LOCATION,
-    ball_location=BALLS_LOCATION_BONOUS,  # toggle this to BALLS_LOCATION_BONOUS to load bonous arena
+    ball_location=BALLS_LOCATION,  # toggle this to BALLS_LOCATION_BONOUS to load bonous arena
     humanoid_location=HUMANOIDS_LOCATION,
     visual_cam_settings=VISUAL_CAM_SETTINGS
 )
@@ -67,43 +67,41 @@ def masking(image , lower_lim , upper_lim):
     res = cv2.bitwise_and(image,image, mask= mask)
     gray = cv2.cvtColor(res, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-    canny = cv2.Canny(blurred, 100, 200)
+    canny = cv2.Canny(blurred, 50, 150)
     return canny
 
 
 def detect_yellow(image):
-    lower_lim = np.array([20,50,50])
-    upper_lim = np.array([40,255,255])
+    lower_lim = np.array([20,50,50], dtype = np.uint8)
+    upper_lim = np.array([40,255,255], dtype = np.uint8)
     return masking(image , lower_lim, upper_lim)
 
 
 def detect_red(image):
-    lower_lim = np.array([0,50,50])
-    upper_lim = np.array([9,255,255])
+    lower_lim = np.array([0,50,50], dtype = np.uint8)
+    upper_lim = np.array([9,255,255], dtype = np.uint8)
     return masking(image , lower_lim, upper_lim)
 
 
 def detect_blue(image):
-    lower_lim = np.array([94,80,20])
-    upper_lim = np.array([120,255,255])
+    lower_lim = np.array([110,50,50], dtype = np.uint8)
+    upper_lim = np.array([130,255,255], dtype = np.uint8)
     return masking(image , lower_lim, upper_lim)
 
 
 def detect_purple(image):
-    lower_lim = np.array([130,80,5])
-    upper_lim = np.array([160,255,255])
+    lower_lim = np.array([130,10,10], dtype = np.uint8)
+    upper_lim = np.array([180,255,255], dtype = np.uint8)
     return masking(image , lower_lim, upper_lim)
 
 
-def backtrack(Movements):
-    print('backtracking started')
-    # move('b',7,2) ## for backtracking yellow ball
-    move('b',18,2)  ## for backtracking in bonus configuration
-    # for movement in reversed(Movements):
-    #     m , v , i = movement
-    #     print(movement)
-    #     move(m,v,i)
-    # #     #await asyncio.sleep(i)
+def backtrack():
+    #print('backtracking started')
+    #move('b',7,2)   ## for backtracking yellow ball
+    move('b',8,2)   ## for backtracking blue ball
+    #move('b',13,2)  ## for backtracking purple ball
+    #move('b',9,2)   ## for backtracking red ball
+    #move('b',18,2)  ## for backtracking in bonus configuration
     global Center
     Center = True
 
@@ -138,39 +136,26 @@ def move(mode='f', speed=1.5 , interval = 0):
 
 
 def isBall(cnt):
-    print('detecting ball')
+    #print('detecting ball')
     area = cv2.contourArea(cnt) if cv2.contourArea(cnt) != 0 else 1
     x, y, w, h = cv2.boundingRect(cnt)
-    #cv2.rectangle(img,(x,y),(x+w,y+h),(0,255,0),2)
+    #cv2.rectangle(img,(x,y),(x+w,y+h),(0,0,0),3)
     #print(f"{w*h/area}, {w/h}")
     return (True if (1.2 < w * h / area < 1.6) else False) if (0.85 < w / h < 1.3) else False
     #return True if (0.85 < w / h < 1.2) else False
 
 def MoveHold(cnt):
-    print('finding ball')
-    global Movements
+    #print('finding ball')
     x, y, w, h = cv2.boundingRect(cnt)
     x = x + w / 2
-    if x > 260:
-        start = t.time()
-        move('r', (x - 255) / 120)
-        end = t.time()
-        interval = end - start
-        Movements.append(('l', (x - 250) / 120 ,interval ))
-    elif x < 250:
-        start = t.time()
-        move('l', (255 - x) / 120)
-        end = t.time()
-        interval = end - start
-        Movements.append(('r',(255-x)/120 , interval))
+    if x > 265:
+        move('r', (x - 260) / 120)
+    elif x < 245:
+        move('l', (250 - x) / 120)
     else:
-        start = t.time()
         move('f', 5)
-        end = t.time()
-        interval = end - start
-        Movements.append(('b',5 , interval))
         area = cv2.contourArea(cnt)
-        print(area)
+        #print(area)
         if area > 23000:
             global Holding
             global cam_height
@@ -182,23 +167,12 @@ def MoveHold(cnt):
 
 
 def MoveShoot(cnt):
-    print('finding goalpost')
-    # x, y, w, h = cv2.boundingRect(cnt)
-    # cv2.rectangle(img,(x,y),(x+w,y+h),(0,255,0),2)
-    # x = x + w / 2
+    #print('finding goalpost')
     (x,y),radius = cv2.minEnclosingCircle(cnt)
     center = (int(x),int(y))
     radius = int(radius)
     cv2.circle(img,center,radius,(0,0,0),3)
-    print(x)
-    #M = cv2.moments(cnt)
-    # if M['m00']:
-    #     x = int(M['m10']/M['m00'])
-    #     print(f"centroid : {x}")
-    # if x > 260:
-    #     move('r', (x - 255) / 120)
-    # elif x < 250:
-    #     move('l', (255 - x) / 120)
+    #print(x)
     if x < 270 and x > 210:
         global Goal
         # t.sleep(1.5)
@@ -213,7 +187,6 @@ open()
 Holding = False
 Center = False
 Goal = False
-Movements = []
 
 while True:
     img = env.get_image(cam_height=cam_height, dims=[512, 512])
@@ -224,7 +197,7 @@ while True:
     ### issue - not able to detect blue goal post
 
     ### code works for yellow ball... but backtracking not working
-    canny = detect_red(img)
+    canny = detect_blue(img)
     #cropped_img = ROI(canny, np.array([ROI_vertices],np.int32))
 
     _ , thresh = cv2.threshold(canny, 127, 255, 0)
@@ -232,27 +205,29 @@ while True:
     
     if Holding:
         if not Center:
-            print('moving to center')
-            #asyncio.run(backtrack(Movements))
-            backtrack(Movements)
+            #print('moving to center')
+            backtrack()
 
     if contours:
         cnt = max(contours , key=cv2.contourArea)
+        # for contour in contours:
+        #     epsilon = 0.002*cv2.arcLength(contour,True)
+        #     approx = cv2.approxPolyDP(contour,epsilon,True)
+        #     print(len(approx))
+        #     if len(approx) > 12:
+        #         cnt = contour
         cv2.drawContours(img, [cnt], 0, (0,255,0), 2)
+        area = cv2.contourArea(cnt)
         if not Holding:
-            print('not holding')
+            #print(area)
+            #print('not holding')
             if isBall(cnt):
                 MoveHold(cnt)
             else:
-                print('rotating')
-                start = t.time()
-                move('l')
-                end = t.time()
-                interval = end - start
-                Movements.append(('r',1.5 , interval))
+                #print('rotating')
+                move('r')
         else:
-            print('reached center')
-            area = cv2.contourArea(cnt)
+            #print('reached center')
             #print(area)
             if not Goal and area > 2000:
                 MoveShoot(cnt)
@@ -262,6 +237,8 @@ while True:
         move('r')
 
     cv2.imshow("image",img)
+
+    ######################################################################################
     ## Manual control code
     keys = p.getKeyboardEvents()
     rot = 3

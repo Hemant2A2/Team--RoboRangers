@@ -3,10 +3,10 @@ import os
 import time as t
 import LaRoboLiga24
 import cv2
-import pybullet as p
 import numpy as np
 
 CAR_LOCATION = [0,0,1.5]
+cam_height = 0
 
 BALLS_LOCATION = dict({
     'red': [7, 4, 1.5],
@@ -72,23 +72,29 @@ def detect_red(image):
 
 
 def detect_blue(image):
-    lower_lim = np.array([110,50,50], dtype = np.uint8)
+    lower_lim = np.array([110,80,80], dtype = np.uint8)
     upper_lim = np.array([130,255,255], dtype = np.uint8)
     return masking(image , lower_lim, upper_lim)
 
 
 def detect_purple(image):
-    lower_lim = np.array([130,10,10], dtype = np.uint8)
+    lower_lim = np.array([130,50,50], dtype = np.uint8)
     upper_lim = np.array([180,255,255], dtype = np.uint8)
     return masking(image , lower_lim, upper_lim)
 
 
-def backtrack():
+def backtrack(ball_no):
     #print('backtracking started')
-    #move('b',7,2)   ## for backtracking yellow ball
-    move('b',8,2)   ## for backtracking blue ball
-    #move('b',13,2)  ## for backtracking purple ball
-    #move('b',9,2)   ## for backtracking red ball
+    if ball_no == 1:
+        move('b',14,2)  ## for backtracking purple ball
+    elif ball_no == 2:
+        move('b',7,2)   ## for backtracking yellow ball
+    elif ball_no == 3:
+        move('b',9,2)   ## for backtracking red ball
+    else:
+        move('b',8,2)   ## for backtracking blue ball
+    
+    
     #move('b',18,2)  ## for backtracking in bonus configuration
     global Center
     Center = True
@@ -103,7 +109,7 @@ def close():
 
 
 def shoot():
-    env.shoot(5000)
+    env.shoot(2000)
 
 
 def stop():
@@ -124,16 +130,11 @@ def move(mode='f', speed=1.5 , interval = 0):
 
 
 def isBall(cnt):
-    #print('detecting ball')
     area = cv2.contourArea(cnt) if cv2.contourArea(cnt) != 0 else 1
     x, y, w, h = cv2.boundingRect(cnt)
-    #cv2.rectangle(img,(x,y),(x+w,y+h),(0,0,0),3)
-    #print(f"{w*h/area}, {w/h}")
     return (True if (1.2 < w * h / area < 1.6) else False) if (0.85 < w / h < 1.3) else False
-    #return True if (0.85 < w / h < 1.2) else False
 
 def MoveHold(cnt):
-    #print('finding ball')
     x, y, w, h = cv2.boundingRect(cnt)
     x = x + w / 2
     if x > 265:
@@ -143,8 +144,7 @@ def MoveHold(cnt):
     else:
         move('f', 5)
         area = cv2.contourArea(cnt)
-        #print(area)
-        if area > 23000:
+        if area > 22000:
             global Holding
             global cam_height
             stop()
@@ -155,16 +155,12 @@ def MoveHold(cnt):
 
 
 def MoveShoot(cnt):
-    #print('finding goalpost')
     (x,y),radius = cv2.minEnclosingCircle(cnt)
     center = (int(x),int(y))
     radius = int(radius)
     cv2.circle(img,center,radius,(0,0,0),3)
-    #print(x)
     if x < 270 and x > 210:
         global Goal
-        # t.sleep(1.5)
-        # move('r')
         stop()
         open()
         shoot()
@@ -172,89 +168,87 @@ def MoveShoot(cnt):
         Goal = True
 
 ######  INITIAL CONDITIONS  ######
-open()
-Holding = False
-Center = False
-Goal = False
-cam_height = 0
+def initial():
+    open()
+    global Holding
+    Holding = False
+    global Center
+    Center = False
+    global Goal
+    Goal = False
+    global cam_height
+    cam_height = 0
+p = y = r = b = False
+p_init = y_init = r_init = b_init = False
 ##################################
 
 while True:
     img = env.get_image(cam_height=cam_height, dims=[512, 512])
 
     ### Search order:
-    ### yellow ball , blue ball , red ball , purple ball
+    ### purple ball , yellow ball , red ball , blue ball
     ### issue - not able to detect blue goal post
 
-    canny = detect_purple(img)
-    _ , thresh = cv2.threshold(canny, 127, 255, 0)
-    contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    
-    if Holding:
-        if not Center:
-            #print('moving to center')
-            backtrack()
+    def Find(canny,ball_no):
+        #_ , thresh = cv2.threshold(canny, 150, 255, 0)
+        contours, _ = cv2.findContours(canny, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        
+        if Holding:
+            if not Center:
+                backtrack(ball_no)
 
-    if contours:
-        cnt = max(contours , key=cv2.contourArea)
-        # for contour in contours:
-        #     epsilon = 0.002*cv2.arcLength(contour,True)
-        #     approx = cv2.approxPolyDP(contour,epsilon,True)
-        #     print(len(approx))
-        #     if len(approx) > 12:
-        #         cnt = contour
-        cv2.drawContours(img, [cnt], 0, (0,255,0), 2)
-        area = cv2.contourArea(cnt)
-        if not Holding:
-            #print(area)
-            #print('not holding')
-            if isBall(cnt):
-                MoveHold(cnt)
+        if contours:
+            cnt = max(contours , key=cv2.contourArea)
+            cv2.drawContours(img, [cnt], 0, (0,255,0), 2)
+            area = cv2.contourArea(cnt)
+            if not Holding:
+                if isBall(cnt):
+                    MoveHold(cnt)
+                else:
+                    move('r')
             else:
-                #print('rotating')
-                move('r')
+                if Goal:
+                    if ball_no == 1:
+                        global p
+                        p = True
+                    elif ball_no == 2:
+                        global y
+                        y = True
+                    elif ball_no == 3:
+                        global r
+                        r = True
+                    else:
+                        global b
+                        b = True
+                elif area > 2000:
+                    MoveShoot(cnt)
+                else:
+                    move('r')
         else:
-            #print('reached center')
-            #print(area)
-            if not Goal and area > 2000:
-                MoveShoot(cnt)
-            else:
-                move('r')
+            move('r')
+
+    if not p:
+        if not p_init:
+            initial()
+            p_init = True
+        Find(detect_purple(img),1)
+    elif not y:
+        if not y_init:
+            initial()
+            y_init = True
+        Find(detect_yellow(img),2)
+    elif not r:
+        if not r_init:
+            initial()
+            r_init = True
+        Find(detect_red(img),3)
     else:
-        move('r')
+        if not b_init:
+            initial()
+            b_init = True
+        Find(detect_blue(img),4)
 
     cv2.imshow("image",img)
-
-    ######################################################################################
-    ## Manual control code
-    keys = p.getKeyboardEvents()
-    rot = 3
-    speed = 5
-    #vel = [[0,0],[0,0]]
-
-    if p.B3G_LEFT_ARROW in keys and keys[p.B3G_LEFT_ARROW] & p.KEY_WAS_TRIGGERED:
-        env.move([[-rot, rot], [-rot, rot]])
-
-    elif p.B3G_RIGHT_ARROW in keys and keys[p.B3G_RIGHT_ARROW] & p.KEY_WAS_TRIGGERED:
-        env.move([[rot, -rot], [rot, -rot]])
-
-    elif p.B3G_UP_ARROW in keys and keys[p.B3G_UP_ARROW] & p.KEY_WAS_TRIGGERED:
-        env.move([[speed,speed ], [speed, speed]])
-
-    elif p.B3G_DOWN_ARROW in keys and keys[p.B3G_DOWN_ARROW] & p.KEY_WAS_TRIGGERED:
-        env.move([[-speed, -speed], [-speed, -speed]])
-
-    elif p.B3G_SPACE in keys and keys[p.B3G_SPACE] & p.KEY_WAS_TRIGGERED:
-        env.move([[0, 0], [0, 0]])
-
-    elif ord('z') in keys and keys[ord('z')] & p.KEY_WAS_TRIGGERED:
-        env.open_grip()
-
-    elif ord('x') in keys and keys[ord('x')] & p.KEY_WAS_TRIGGERED:
-        env.close_grip()
-
-    elif ord('s') in keys and keys[ord('s')] & p.KEY_WAS_TRIGGERED:
-        env.shoot(5000)
 
     k = cv2.waitKey(1)
     if k == ord('q'):

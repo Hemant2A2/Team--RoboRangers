@@ -8,6 +8,7 @@ import numpy as np
 CAR_LOCATION = [0,0,1.5]
 cam_height = 0
 
+
 BALLS_LOCATION = dict({
     'red': [7, 4, 1.5],
     'blue': [2, -6, 1.5],
@@ -72,30 +73,26 @@ def detect_red(image):
 
 
 def detect_blue(image):
-    lower_lim = np.array([110,80,80], dtype = np.uint8)
+    lower_lim = np.array([110,50,50], dtype = np.uint8)
     upper_lim = np.array([130,255,255], dtype = np.uint8)
     return masking(image , lower_lim, upper_lim)
 
 
 def detect_purple(image):
     lower_lim = np.array([130,50,50], dtype = np.uint8)
-    upper_lim = np.array([180,255,255], dtype = np.uint8)
+    upper_lim = np.array([160,255,255], dtype = np.uint8)
     return masking(image , lower_lim, upper_lim)
 
 
 def backtrack(ball_no):
-    #print('backtracking started')
-    if ball_no == 1:
+    if ball_no == 4:
         move('b',14,2)  ## for backtracking purple ball
-    elif ball_no == 2:
+    elif ball_no == 1:
         move('b',7,2)   ## for backtracking yellow ball
-    elif ball_no == 3:
+    elif ball_no == 2:
         move('b',9,2)   ## for backtracking red ball
     else:
         move('b',8,2)   ## for backtracking blue ball
-    
-    
-    #move('b',18,2)  ## for backtracking in bonus configuration
     global Center
     Center = True
 
@@ -109,7 +106,7 @@ def close():
 
 
 def shoot():
-    env.shoot(2000)
+    env.shoot(1000)
 
 
 def stop():
@@ -144,7 +141,7 @@ def MoveHold(cnt):
     else:
         move('f', 5)
         area = cv2.contourArea(cnt)
-        if area > 22000:
+        if area > 23000:
             global Holding
             global cam_height
             stop()
@@ -159,7 +156,7 @@ def MoveShoot(cnt):
     center = (int(x),int(y))
     radius = int(radius)
     cv2.circle(img,center,radius,(0,0,0),3)
-    if x < 270 and x > 210:
+    if x < 290 and x > 170:
         global Goal
         stop()
         open()
@@ -167,7 +164,7 @@ def MoveShoot(cnt):
         t.sleep(2)
         Goal = True
 
-######  INITIAL CONDITIONS  ######
+############  INITIAL CONDITIONS  ##############
 def initial():
     open()
     global Holding
@@ -180,22 +177,27 @@ def initial():
     cam_height = 0
 p = y = r = b = False
 p_init = y_init = r_init = b_init = False
-##################################
+################################################
 
 while True:
     img = env.get_image(cam_height=cam_height, dims=[512, 512])
 
-    ### Search order:
-    ### purple ball , yellow ball , red ball , blue ball
-    ### issue - not able to detect blue goal post
-
     def Find(canny,ball_no):
-        #_ , thresh = cv2.threshold(canny, 150, 255, 0)
+        global Holding , Center , Goal, ball_location
+        global p,y,r,b
         contours, _ = cv2.findContours(canny, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         
         if Holding:
             if not Center:
                 backtrack(ball_no)
+                if ball_no is 3:
+                    move('r',4,2.7)
+                    stop()
+                    open()
+                    shoot()
+                    t.sleep(2)
+                    Goal = True
+                    b = True
 
         if contours:
             cnt = max(contours , key=cv2.contourArea)
@@ -205,21 +207,20 @@ while True:
                 if isBall(cnt):
                     MoveHold(cnt)
                 else:
-                    move('r')
+                    if ball_no is 1:
+                        move('l')
+                    else:
+                        move('r')
             else:
                 if Goal:
                     if ball_no == 1:
-                        global p
-                        p = True
-                    elif ball_no == 2:
-                        global y
                         y = True
-                    elif ball_no == 3:
-                        global r
+                    elif ball_no == 2:
                         r = True
-                    else:
-                        global b
+                    elif ball_no == 3:
                         b = True
+                    else:
+                        p = True
                 elif area > 2000:
                     MoveShoot(cnt)
                 else:
@@ -227,26 +228,28 @@ while True:
         else:
             move('r')
 
-    if not p:
-        if not p_init:
-            initial()
-            p_init = True
-        Find(detect_purple(img),1)
-    elif not y:
+    if not y:
         if not y_init:
             initial()
             y_init = True
-        Find(detect_yellow(img),2)
+        Find(detect_yellow(img),1)
     elif not r:
         if not r_init:
             initial()
             r_init = True
-        Find(detect_red(img),3)
-    else:
+        Find(detect_red(img),2)
+    elif not b:
         if not b_init:
             initial()
             b_init = True
-        Find(detect_blue(img),4)
+        Find(detect_blue(img),3)
+    elif not p:
+        if not p_init:
+            initial()
+            p_init = True
+        Find(detect_purple(img),4)
+    else:
+        break
 
     cv2.imshow("image",img)
 

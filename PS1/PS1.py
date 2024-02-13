@@ -31,7 +31,6 @@ env = gym.make('LaRoboLiga24',
 """
 CODE AFTER THIS
 """
-### Team--RoboRangers/urdf/arena/robo_lega/materials ---> use the track.jpg image in drive here
 
 def ROI(img):
     mask = np.zeros_like(img)

@@ -84,11 +84,6 @@ def detect_purple(image):
     return masking(image , lower_lim, upper_lim)
 
 
-def backtrack():
-    move('b',18,2)
-    global Center
-    Center = True
-
 
 def open():
     env.open_grip()
@@ -99,14 +94,14 @@ def close():
 
 
 def shoot():
-    env.shoot(1000)
+    env.shoot(500)
 
 
 def stop():
     env.move(vels=[[0, 0], [0, 0]])
 
 
-def move(mode='f', speed=1.5 , interval = 0):
+def move(mode='f', speed=2 , interval = 0):
     if mode.lower() == "f":
         vel = [[speed, speed], [speed, speed]]
     elif mode.lower() == "b":
@@ -119,6 +114,15 @@ def move(mode='f', speed=1.5 , interval = 0):
     t.sleep(interval)
 
 
+def backtrack(ball_no):
+    stop()
+    if ball_no is not 3 and ball_no is not 4:
+        move('b',6,6)
+    else:
+        move('b',5,6)
+    global Center
+    Center = True
+
 def isBall(cnt):
     area = cv2.contourArea(cnt) if cv2.contourArea(cnt) != 0 else 1
     x, y, w, h = cv2.boundingRect(cnt)
@@ -127,14 +131,14 @@ def isBall(cnt):
 def MoveHold(cnt):
     x, y, w, h = cv2.boundingRect(cnt)
     x = x + w / 2
-    if x > 265:
-        move('r', (x - 260) / 120)
-    elif x < 245:
-        move('l', (250 - x) / 120)
+    if x > 270:
+        move('r', (x - 260) / 60)
+    elif x < 240:
+        move('l', (250 - x) / 60)
     else:
-        move('f', 5)
+        move('f', 6)
         area = cv2.contourArea(cnt)
-        if area > 23000:
+        if area > 30000:
             global Holding
             global cam_height
             stop()
@@ -149,7 +153,7 @@ def MoveShoot(cnt):
     center = (int(x),int(y))
     radius = int(radius)
     cv2.circle(img,center,radius,(0,0,0),3)
-    if x < 290 and x > 170:
+    if x < 260 and x > 220:
         global Goal
         stop()
         open()
@@ -172,24 +176,20 @@ p = y = r = b = False
 p_init = y_init = r_init = b_init = False
 ##################################
 
+t.sleep(5)
 while True:
     img = env.get_image(cam_height=cam_height, dims=[512, 512])
-
-    ### Search order:
-    ### purple ball , yellow ball , red ball , blue ball
-    ### issue - not able to detect blue goal post
 
     def Find(canny,ball_no):
         global Holding , Center , Goal, ball_location
         global p,y,r,b
-        #_ , thresh = cv2.threshold(canny, 150, 255, 0)
         contours, _ = cv2.findContours(canny, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         
         if Holding:
             if not Center:
-                backtrack()
+                backtrack(ball_no)
                 if ball_no is 3:
-                    move('r',5,4)
+                    move('r',3,5)
                     stop()
                     open()
                     shoot()
@@ -261,6 +261,5 @@ while True:
     if k == ord('q'):
         break
 
-t.sleep(10)
+t.sleep(5)
 env.close()
-

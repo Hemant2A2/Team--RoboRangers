@@ -86,13 +86,13 @@ def detect_purple(image):
 
 def backtrack(ball_no):
     if ball_no == 4:
-        move('b',14,2)  ## for backtracking purple ball
+        move('b',7,4)  ## for backtracking purple ball
     elif ball_no == 1:
         move('b',7,2)   ## for backtracking yellow ball
     elif ball_no == 2:
         move('b',9,2)   ## for backtracking red ball
     else:
-        move('b',8,2)   ## for backtracking blue ball
+        move('b',7,2)   ## for backtracking blue ball
     global Center
     Center = True
 
@@ -106,14 +106,14 @@ def close():
 
 
 def shoot():
-    env.shoot(1000)
+    env.shoot(500)
 
 
 def stop():
     env.move(vels=[[0, 0], [0, 0]])
 
 
-def move(mode='f', speed=1.5 , interval = 0):
+def move(mode='f', speed=2 , interval = 0):
     if mode.lower() == "f":
         vel = [[speed, speed], [speed, speed]]
     elif mode.lower() == "b":
@@ -134,14 +134,14 @@ def isBall(cnt):
 def MoveHold(cnt):
     x, y, w, h = cv2.boundingRect(cnt)
     x = x + w / 2
-    if x > 265:
-        move('r', (x - 260) / 120)
-    elif x < 245:
-        move('l', (250 - x) / 120)
+    if x > 270:
+        move('r', (x - 260) / 60)
+    elif x < 240:
+        move('l', (250 - x) / 60)
     else:
-        move('f', 5)
+        move('f', 6)
         area = cv2.contourArea(cnt)
-        if area > 23000:
+        if area > 30000:
             global Holding
             global cam_height
             stop()
@@ -156,7 +156,7 @@ def MoveShoot(cnt):
     center = (int(x),int(y))
     radius = int(radius)
     cv2.circle(img,center,radius,(0,0,0),3)
-    if x < 290 and x > 170:
+    if x < 260 and x > 220:
         global Goal
         stop()
         open()
@@ -179,6 +179,7 @@ p = y = r = b = False
 p_init = y_init = r_init = b_init = False
 ################################################
 
+t.sleep(5)
 while True:
     img = env.get_image(cam_height=cam_height, dims=[512, 512])
 
@@ -191,7 +192,7 @@ while True:
             if not Center:
                 backtrack(ball_no)
                 if ball_no is 3:
-                    move('r',4,2.7)
+                    move('r',4,3)
                     stop()
                     open()
                     shoot()
@@ -257,5 +258,5 @@ while True:
     if k == ord('q'):
         break
 
-t.sleep(10)
+t.sleep(5)
 env.close()

@@ -49,7 +49,7 @@ def detect_center(image):
     mask = cv2.inRange(hsv, lower_red, upper_red)
     res = cv2.bitwise_and(image,image, mask= mask)
     gray = cv2.cvtColor(res, cv2.COLOR_BGR2GRAY)
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0) #Used Blur to reduce noise in the gray image because Canny edge detection is sensitive to noise in image
     edges = cv2.Canny(blurred, 50, 150)
     return ROI(edges)
 
